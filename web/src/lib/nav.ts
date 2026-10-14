@@ -415,7 +415,7 @@ export function ancestorsOf(pathname: string): string[] {
     return [`/pane/${id}/changes`, `/pane/${id}`, ANY_SPACE, "/"];
   }
   if (head === "pane" && seg.length === 2) return [ANY_SPACE, "/"];
-  if (head === "pane" && seg.length === 3 && (leaf === "history" || leaf === "changes")) {
+  if (head === "pane" && seg.length === 3 && (leaf === "history" || leaf === "changes" || leaf === "summary")) {
     return [`/pane/${id}`, ANY_SPACE, "/"];
   }
   if (head === "settings" && seg.length === 1) return ["/"];
@@ -639,7 +639,7 @@ export function parentChain(pathname: string, search: string): string[] {
     return [...chain, filesUnder(list), ...filesFolders(at).slice(0, at.path !== undefined ? undefined : -1).map((dir) => filesUnder(list, { dir }))];
   }
   if (head === "pane" && seg.length === 2) return [home];
-  if (head === "pane" && seg.length === 3 && (leaf === "history" || leaf === "changes")) {
+  if (head === "pane" && seg.length === 3 && (leaf === "history" || leaf === "changes" || leaf === "summary")) {
     const pane = `/pane/${id}${q}`;
     return file ? [home, pane, `/pane/${id}/changes${q}`] : [home, pane];
   }

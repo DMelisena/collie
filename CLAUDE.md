@@ -482,10 +482,11 @@ lint guard, the crew-wire guard or the `flake.lock` guard.
   followed by `revalidator.revalidate()`. There is **no TanStack Query** — don't reintroduce it.
 - Routes (`web/src/router.tsx`): `/`, `/space/:spaceId`, `/settings` (an INDEX of four sections:
   `/settings/appearance`, `/settings/device`, `/settings/alerts`, `/settings/system`), `/pane/:paneId`,
-  `/pane/:paneId/history`, `/pane/:paneId/changes` and `/space/:spaceId/changes` (both matched as
-  `changes/*`, so the commit view `…/changes/commit` and a folder or file of the tree `…/changes/files`
-  share the screen's route; the tree's root is `…/changes` itself, ADR 0083). The router
-  instance is module-scoped so it keeps its location.
+  `/pane/:paneId/history`, `/pane/:paneId/summary` (the per-agent summary chat, lazily projected
+  from the same journal `history` reads) and `/pane/:paneId/changes` and `/space/:spaceId/changes`
+  (both matched as `changes/*`, so the commit view `…/changes/commit` and a folder or file of the
+  tree `…/changes/files` share the screen's route; the tree's root is `…/changes` itself, ADR
+  0083). The router instance is module-scoped so it keeps its location.
 - **Back goes up one level.** Navigate through `useNav()` (`web/src/hooks/use-nav.ts`): down is a
   push that records `from`, sideways is a replace, up steps back onto a legitimate parent or
   replaces onto the structural one, never a push. A new route gets its place in `ancestorsOf` and

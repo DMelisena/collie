@@ -1142,6 +1142,13 @@ export const ko: Dictionary = {
   "history.nextMessageAria": "다음에 보낸 메시지",
   "history.loadOlderFailed": "이전 기록을 불러오지 못했습니다",
 
+  // --- summary (에이전트의 요약 채팅) ---
+  "summary.title": "요약",
+  "summary.openAria": "요약 열기",
+  "summary.closeAria": "요약 닫기",
+  "summary.openFullSession": "전체 세션 열기",
+  "summary.empty": "아직 요약할 내용이 없습니다.",
+
   // --- transcript (transcript-view turn rendering) ---
   "transcript.summaryLabel": "컨텍스트 압축됨",
   "transcript.systemLabel": "시스템",

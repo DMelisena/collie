@@ -111,7 +111,7 @@ import { paneRowKey, paneScope } from "@/lib/hosts";
 import { paneScopeKey } from "@/lib/scope";
 import { usePins } from "@/lib/pins";
 import { paneFilesDir } from "@/lib/file-paths";
-import { changesPath, filesPath, historyPath, newPath, panePath, spacePath } from "@/lib/nav";
+import { changesPath, filesPath, historyPath, newPath, panePath, spacePath, summaryPath } from "@/lib/nav";
 import { isReadOnly, statusLabel } from "@/lib/types";
 import { usePairing } from "@/lib/pairing";
 import type { AgentView, BridgeStatus, DeviceAuth, ServerSummary, TabView } from "@/lib/types";
@@ -2948,6 +2948,7 @@ export function AgentChat({
           // withheld, the way the sheet withholds every row it was given nothing for.
           onFind={display && !chatShown ? openFind : undefined}
           onHistory={historyAvailable ? () => nav.down(historyPath(paneId, scope)) : undefined}
+          onSummary={historyAvailable ? () => nav.down(summaryPath(paneId, scope)) : undefined}
           // Copy the buffered output — gated on there being output AND a clipboard to write to (absent
           // over plain HTTP), so the row hides where it could only fail, the way find hides with no
           // output. Same read-row family as find and history.

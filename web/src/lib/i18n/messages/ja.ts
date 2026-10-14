@@ -1143,6 +1143,13 @@ export const ja: Dictionary = {
   "history.nextMessageAria": "次の送信メッセージ",
   "history.loadOlderFailed": "過去の履歴を読み込めませんでした",
 
+  // --- summary（エージェントの要約チャット） ---
+  "summary.title": "要約",
+  "summary.openAria": "要約を開く",
+  "summary.closeAria": "要約を閉じる",
+  "summary.openFullSession": "セッション全体を開く",
+  "summary.empty": "まだ要約できる内容がありません。",
+
   // --- transcript (transcript-view turn rendering) ---
   "transcript.summaryLabel": "コンテキスト圧縮済",
   "transcript.systemLabel": "システム",

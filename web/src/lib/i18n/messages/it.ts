@@ -1029,6 +1029,13 @@ export const it: Dictionary = {
   "history.prevMessageAria": "Messaggio precedente che hai inviato",
   "history.nextMessageAria": "Messaggio successivo che hai inviato",
   "history.loadOlderFailed": "Impossibile caricare la cronologia precedente",
+
+  // --- summary (chat di riepilogo continuo di un agente) ---
+  "summary.title": "Riepilogo",
+  "summary.openAria": "Apri riepilogo",
+  "summary.closeAria": "Chiudi riepilogo",
+  "summary.openFullSession": "Apri sessione completa",
+  "summary.empty": "Ancora niente da riassumere.",
   "transcript.summaryLabel": "Contesto compattato",
   "transcript.systemLabel": "Sistema",
   "transcript.youLabel": "Tu",

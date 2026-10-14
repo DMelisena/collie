@@ -1029,6 +1029,13 @@ export const tr: Dictionary = {
   "history.prevMessageAria": "Gönderdiğiniz önceki mesaj",
   "history.nextMessageAria": "Gönderdiğiniz sonraki mesaj",
   "history.loadOlderFailed": "Daha eski geçmiş yüklenemedi",
+
+  // --- summary (bir temsilcinin özet sohbeti) ---
+  "summary.title": "Özet",
+  "summary.openAria": "Özeti aç",
+  "summary.closeAria": "Özeti kapat",
+  "summary.openFullSession": "Tam oturumu aç",
+  "summary.empty": "Henüz özetlenecek bir şey yok.",
   "transcript.summaryLabel": "Bağlam sıkıştırıldı",
   "transcript.systemLabel": "Sistem",
   "transcript.youLabel": "Siz",

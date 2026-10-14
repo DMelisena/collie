@@ -28,6 +28,15 @@ export function historyPath(paneId: string, scope?: Scope): string {
 }
 
 /**
+ * One agent's summary chat (Captain's brief): the rolling recap built over the same transcript
+ * `historyPath` reads, never the raw turns. A child path of the pane so "back" lands on the live
+ * session, and so does the shortcut this view itself draws.
+ */
+export function summaryPath(paneId: string, scope?: Scope): string {
+  return `/pane/${encodeURIComponent(paneId)}/summary${scopeSearch(scope)}`;
+}
+
+/**
  * A pane's Changes view (ADR 0065): the list, or with `file` one file's diff. The file rides in the
  * query (`repo`, `path`) beside the scope, so browser back walks from a diff to the list.
  */

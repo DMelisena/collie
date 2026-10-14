@@ -1083,6 +1083,13 @@ export const ru: Dictionary = {
   "history.prevMessageAria": "Предыдущее отправленное вами сообщение",
   "history.nextMessageAria": "Следующее отправленное вами сообщение",
   "history.loadOlderFailed": "Не удалось загрузить более раннюю историю",
+
+  // --- summary (сводный чат агента) ---
+  "summary.title": "Сводка",
+  "summary.openAria": "Открыть сводку",
+  "summary.closeAria": "Закрыть сводку",
+  "summary.openFullSession": "Открыть полную сессию",
+  "summary.empty": "Пока нечего резюмировать.",
   "transcript.summaryLabel": "Контекст сжат",
   "transcript.systemLabel": "Система",
   "transcript.youLabel": "Вы",

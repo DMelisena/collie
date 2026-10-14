@@ -28,6 +28,15 @@ export function historyPath(paneId: string, scope?: Scope): string {
 }
 
 /**
+ * One agent's summary chat (Captain's brief): the rolling recap built over the same transcript
+ * `historyPath` reads, never the raw turns. A child path of the pane so "back" lands on the live
+ * session, and so does the shortcut this view itself draws.
+ */
+export function summaryPath(paneId: string, scope?: Scope): string {
+  return `/pane/${encodeURIComponent(paneId)}/summary${scopeSearch(scope)}`;
+}
+
+/**
  * A pane's Changes view (ADR 0065): the list, or with `file` one file's diff. The file rides in the
  * query (`repo`, `path`) beside the scope, so browser back walks from a diff to the list.
  */
@@ -406,7 +415,7 @@ export function ancestorsOf(pathname: string): string[] {
     return [`/pane/${id}/changes`, `/pane/${id}`, ANY_SPACE, "/"];
   }
   if (head === "pane" && seg.length === 2) return [ANY_SPACE, "/"];
-  if (head === "pane" && seg.length === 3 && (leaf === "history" || leaf === "changes")) {
+  if (head === "pane" && seg.length === 3 && (leaf === "history" || leaf === "changes" || leaf === "summary")) {
     return [`/pane/${id}`, ANY_SPACE, "/"];
   }
   if (head === "settings" && seg.length === 1) return ["/"];
@@ -630,7 +639,7 @@ export function parentChain(pathname: string, search: string): string[] {
     return [...chain, filesUnder(list), ...filesFolders(at).slice(0, at.path !== undefined ? undefined : -1).map((dir) => filesUnder(list, { dir }))];
   }
   if (head === "pane" && seg.length === 2) return [home];
-  if (head === "pane" && seg.length === 3 && (leaf === "history" || leaf === "changes")) {
+  if (head === "pane" && seg.length === 3 && (leaf === "history" || leaf === "changes" || leaf === "summary")) {
     const pane = `/pane/${id}${q}`;
     return file ? [home, pane, `/pane/${id}/changes${q}`] : [home, pane];
   }

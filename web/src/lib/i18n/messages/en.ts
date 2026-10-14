@@ -1223,6 +1223,13 @@ export const en = {
   "history.nextMessageAria": "Next message you sent",
   "history.loadOlderFailed": "Couldn't load older history",
 
+  // --- summary (one agent's rolling summary chat, Captain's brief) ---
+  "summary.title": "Summary",
+  "summary.openAria": "Open summary",
+  "summary.closeAria": "Close summary",
+  "summary.openFullSession": "Open full session",
+  "summary.empty": "Nothing to summarise yet.",
+
   // --- transcript (transcript-view turn rendering) ---
   "transcript.summaryLabel": "Context compacted",
   "transcript.systemLabel": "System",

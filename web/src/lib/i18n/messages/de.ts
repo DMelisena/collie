@@ -1152,6 +1152,13 @@ export const de: Dictionary = {
   "history.nextMessageAria": "Nächste gesendete Nachricht",
   "history.loadOlderFailed": "Älterer Verlauf konnte nicht geladen werden",
 
+  // --- summary (laufender Zusammenfassungs-Chat eines Agenten) ---
+  "summary.title": "Zusammenfassung",
+  "summary.openAria": "Zusammenfassung öffnen",
+  "summary.closeAria": "Zusammenfassung schließen",
+  "summary.openFullSession": "Vollständige Sitzung öffnen",
+  "summary.empty": "Noch nichts zum Zusammenfassen.",
+
   // --- transcript (transcript-view turn rendering) ---
   "transcript.summaryLabel": "Kontext komprimiert",
   "transcript.systemLabel": "System",

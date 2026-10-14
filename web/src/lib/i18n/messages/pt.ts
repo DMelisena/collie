@@ -1029,6 +1029,13 @@ export const pt: Dictionary = {
   "history.prevMessageAria": "Mensagem anterior enviada por você",
   "history.nextMessageAria": "Próxima mensagem enviada por você",
   "history.loadOlderFailed": "Não foi possível carregar o histórico mais antigo",
+
+  // --- summary (chat de resumo contínuo de um agente) ---
+  "summary.title": "Resumo",
+  "summary.openAria": "Abrir resumo",
+  "summary.closeAria": "Fechar resumo",
+  "summary.openFullSession": "Abrir sessão completa",
+  "summary.empty": "Ainda não há nada para resumir.",
   "transcript.summaryLabel": "Contexto compactado",
   "transcript.systemLabel": "Sistema",
   "transcript.youLabel": "Você",

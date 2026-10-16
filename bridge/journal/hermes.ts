@@ -6,6 +6,7 @@
 // root before opening.
 
 import { Database } from "bun:sqlite";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { JsonObject, JsonValue } from "../json.ts";
@@ -43,6 +44,9 @@ import type {
 } from "./types.ts";
 
 const DB_FILE = "state.db";
+/** Where Hermes keeps profiles under a HERMES_HOME, and a profile name safe to join into a path. */
+const PROFILES_DIR = "profiles";
+const PROFILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
 const SESSION_ID_RE = /^\d{8}_\d{6}_[A-Za-z0-9]+$/;
 
 export function isHermesSessionId(value: string): boolean {
@@ -370,15 +374,38 @@ export class HermesTranscriptSource implements TranscriptSource {
     this.roots = rootList(roots);
   }
 
+  /**
+   * Every `state.db` a root holds: its own, then one per profile. A Hermes profile (`hermes -p
+   * shiro`) is a whole HERMES_HOME nested at `<root>/profiles/<name>/` with its own database, so a
+   * profile session is in no other file. The profile name comes from a directory listing, never from
+   * the ref, and each path is still confined to the root that built it.
+   */
+  private async databases(root: string): Promise<string[]> {
+    const names = await readdir(join(root, PROFILES_DIR)).catch(() => [] as string[]);
+    const candidates = [
+      join(root, DB_FILE),
+      ...names
+        .filter((n) => PROFILE_NAME_RE.test(n))
+        .sort()
+        .map((n) => join(root, PROFILES_DIR, n, DB_FILE)),
+    ];
+    const found: string[] = [];
+    for (const c of candidates) {
+      const path = await containedRealpath(c, root);
+      if (path !== null) found.push(path);
+    }
+    return found;
+  }
+
   async resolve(ref: AgentSessionRef): Promise<string | null> {
     if (ref.kind !== "id" || !isHermesSessionId(ref.value)) return null;
     for (const root of this.roots) {
-      const path = await containedRealpath(join(root, DB_FILE), root);
-      if (path === null) continue;
-      const found = withDb(path, (db) =>
-        db.query<{ id: string }, [string]>("select id from sessions where id = ?").get(ref.value),
-      );
-      if (found !== null && found !== undefined) return hermesKey(path, ref.value);
+      for (const path of await this.databases(root)) {
+        const found = withDb(path, (db) =>
+          db.query<{ id: string }, [string]>("select id from sessions where id = ?").get(ref.value),
+        );
+        if (found !== null && found !== undefined) return hermesKey(path, ref.value);
+      }
     }
     return null;
   }

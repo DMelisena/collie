@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { MuxSpace } from "../types.ts";
-import { HerdrMux, REPO_LOOKUP_RETRY_MS, workspaceRepoOf } from "./adapter.ts";
+import { HerdrMux, paneAgent, REPO_LOOKUP_RETRY_MS, workspaceRepoOf } from "./adapter.ts";
 import type { WireSnapshot, WireWorkspace, WireWorktreeListing } from "./client.ts";
 import { FakeHerdr } from "./fixture.ts";
 
@@ -300,5 +300,28 @@ describe("herdr 0.8.2: the repo is on the workspace record", () => {
     const { spaces } = await new HerdrMux(fake, () => []).snapshot();
     expect(fake.lookups).toEqual(["w5"]);
     expect("repoRoot" in spaceOf(spaces, "w5")).toBe(false);
+  });
+});
+
+// herdr 0.9.3 never detects Hermes from the process: with its v5 integration the pane reads
+// `agent: null` plus a `herdr:hermes` session, and reading that as a shell dropped the session too,
+// so a Hermes pane had no Chat.
+describe("paneAgent", () => {
+  const hermesSession = { source: "herdr:hermes", agent: "hermes", kind: "id", value: "20261016_020350_311a21" };
+
+  test("Herdr's own detection wins", () => {
+    expect(paneAgent({ agent: "claude", agent_session: hermesSession })).toBe("claude");
+  });
+
+  test("a Hermes pane is identified by its session report alone", () => {
+    expect(paneAgent({ agent: null, agent_session: hermesSession })).toBe("hermes");
+  });
+
+  // Herdr keeps a pane's last report after its agent exits, so a leftover ref from a harness Herdr
+  // CAN detect must not resurrect it over the shell left behind.
+  test("a leftover session from a process-detected harness leaves a shell a shell", () => {
+    expect(paneAgent({ agent: null, agent_session: { agent: "claude", kind: "id", value: "abc" } })).toBe("shell");
+    expect(paneAgent({ agent: null, agent_session: null })).toBe("shell");
+    expect(paneAgent({})).toBe("shell");
   });
 });

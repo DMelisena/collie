@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -87,6 +87,34 @@ describe("HermesTranscriptSource", () => {
     expect(key).toContain("#" + SID);
     const loaded = await source.load(key!);
     expect(parseHermesTranscript(loaded.text)[0]?.parts[0]).toEqual({ kind: "text", text: "older turn" });
+
+    await rm(root, { recursive: true, force: true });
+  });
+
+  // `hermes -p shiro` is a whole HERMES_HOME at `<root>/profiles/shiro/`, with its own state.db; a
+  // reader that only opened `<root>/state.db` found no profile session at all.
+  test("finds a session that lives in a profile's own state.db", async () => {
+    const root = await mkdtemp(join(tmpdir(), "collie-hermes-profile-"));
+    const PROFILE_SID = "20261011_004220_164149";
+    for (const [dir, sid, text] of [
+      [root, SID, "default home"],
+      [join(root, "profiles", "shiro"), PROFILE_SID, "from shiro"],
+    ] as const) {
+      await mkdir(dir, { recursive: true });
+      const db = new Database(join(dir, "state.db"));
+      db.run("create table sessions (id text primary key, source text, started_at real, parent_session_id text)");
+      db.run("create table messages (id integer primary key, session_id text, role text, content text, tool_call_id text, tool_calls text, tool_name text, timestamp real, reasoning text, reasoning_content text, active integer default 1, compacted integer default 0, display_kind text)");
+      db.run("insert into sessions (id, source, started_at, parent_session_id) values (?, 'cli', 1, null)", [sid]);
+      db.run("insert into messages (id, session_id, role, content, timestamp) values (1, ?, 'user', ?, 1)", [sid, text]);
+      db.close();
+    }
+
+    const source = new HermesTranscriptSource(root);
+    const key = await source.resolve({ kind: "id", value: PROFILE_SID });
+    expect(key).toBe(`${await realpath(join(root, "profiles", "shiro", "state.db"))}#${PROFILE_SID}`);
+    const loaded = await source.load(key!);
+    expect(parseHermesTranscript(loaded.text)[0]?.parts[0]).toEqual({ kind: "text", text: "from shiro" });
+    expect(await source.resolve({ kind: "id", value: "20990101_000000_ffffff" })).toBeNull();
 
     await rm(root, { recursive: true, force: true });
   });

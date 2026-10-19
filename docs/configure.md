@@ -846,15 +846,19 @@ cannot work this out.
 
 | Multiplexer | What reports the session | Chat works for |
 | --- | --- | --- |
-| Herdr | The matching Herdr integration for that agent, installed once with `herdr integration install <agent>` (for example `claude`, `codex`, `opencode`, `pi`, `omp`, `grok`, `hermes`), then restart the agent | Every agent that has an integration and a session log Collie reads |
+| Herdr | The matching Herdr integration for that agent, installed once with `herdr integration install <agent>` (for example `claude`, `codex`, `opencode`, `pi`, `omp`, `grok`), then restart the agent | Every agent that has an integration and a session log Collie reads |
 | tmux, zellij, Tern (experimental) | Collie's [beacon hooks](multiplexers.md#agent-beacons-optional-linux) | Claude Code only, after `collie hooks install claude` |
 | tuios | The tuios daemon | The agents the daemon reports |
 
-OpenClaw needs no Herdr integration for Chat. Herdr does not pass an OpenClaw session on, so Collie
-reads the session name off the footer of `openclaw tui` (`agent main (main) | session work | …`) and
-opens that agent's session database under `$OPENCLAW_STATE_DIR`, or `~/.openclaw`, read-only. Set
-`openclaw_root` when the state folder is somewhere else. The pane must report itself to Herdr as
-agent `openclaw`. Collie never reads OpenClaw's config file or its gateway token.
+OpenClaw and Hermes need no Herdr integration for Chat. Herdr does not pass an OpenClaw session on,
+so Collie reads the session name off the footer of `openclaw tui` (`agent main (main) | session work
+| …`) and opens that agent's session database under `$OPENCLAW_STATE_DIR`, or `~/.openclaw`,
+read-only. Set `openclaw_root` when the state folder is somewhere else. The pane must report itself
+to Herdr as agent `openclaw`. Collie never reads OpenClaw's config file or its gateway token. Hermes
+has a Herdr integration, but Hermes core's own hook call site can leave a pane unreported, so Collie
+instead finds the session itself from Hermes's own SessionDB: the session the pane's foreground argv
+names with `--resume`/`-r`, or else the newest session (across the default `~/.hermes` and every
+`hermes -p <profile>` home) whose `cwd` matches the pane's folder.
 
 `herdr integration status` shows which integrations are installed. A hook is read when the agent
 starts, so an agent that was already running when you installed it needs a restart. Oh My Pi is the

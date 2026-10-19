@@ -423,12 +423,12 @@ export class HermesTranscriptSource implements TranscriptSource {
    * the ref, and each path is still confined to the root that built it.
    */
   private async databases(root: string): Promise<string[]> {
-    const names = await readdir(join(root, PROFILES_DIR)).catch(() => [] as string[]);
+    const names: readonly string[] = await readdir(join(root, PROFILES_DIR)).catch(() => []);
     const candidates = [
       join(root, DB_FILE),
       ...names
         .filter((n) => PROFILE_NAME_RE.test(n))
-        .sort()
+        .toSorted()
         .map((n) => join(root, PROFILES_DIR, n, DB_FILE)),
     ];
     const found: string[] = [];

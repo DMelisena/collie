@@ -646,7 +646,7 @@ const SESSION_IDENTIFIED_AGENTS = new Set(["hermes"]);
 export function paneAgent(raw: Pick<WirePane, "agent" | "agent_session">): string {
   if (raw.agent !== null && raw.agent !== undefined && raw.agent.length > 0) return raw.agent;
   const reported = raw.agent_session?.agent;
-  return typeof reported === "string" && SESSION_IDENTIFIED_AGENTS.has(reported) ? reported : "shell";
+  return reported !== undefined && SESSION_IDENTIFIED_AGENTS.has(reported) ? reported : "shell";
 }
 
 /**

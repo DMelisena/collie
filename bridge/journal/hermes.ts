@@ -1,11 +1,25 @@
 // Hermes' local SessionDB journal adapter.
 //
 // Hermes stores sessions in one SQLite database (`~/.hermes/state.db`). The pane supplies the
-// session id through Herdr, so this adapter reads exactly that session; it never guesses from the
-// newest row. The database is opened read-only and the fixed filename is confined to the configured
-// root before opening.
+// session id through Herdr when it can; this adapter also DISCOVERS a session by cwd when it
+// cannot (see `discover` below), and either way reads exactly that session — it never guesses from
+// the newest row once a session is named. The database is opened read-only and the fixed filename
+// is confined to the configured root before opening.
+//
+// WHY DISCOVERY EXISTS AT ALL. Herdr's Hermes integration (plugin `herdr-agent-state`, v5) reports a
+// pane's session through hooks fired by Hermes core — but those hooks pass the running agent's
+// `platform` field, and at least one real call site (`agent/turn_context.py`'s `pre_llm_call`)
+// defaults an unset `platform` to `""` rather than `"cli"`. The plugin only reports for a platform
+// in `{cli, tui, desktop, acp}`, so an empty string never reports — live-verified 2026-10-17 in an
+// isolated Herdr lab: a plain `hermes chat` pane, a full turn answered, still carried no
+// `agent_session` in `pane.list`. Hermes panes read as bare shells with no Chat, which is the
+// reported bug. That is a Hermes-side defect this adapter cannot fix, so it works around the gap
+// exactly as Muse's adapter does for its own unreported sessions (journal/muse.ts): find the session
+// without being told. Hermes writes its `sessions` row (with `cwd`) at session START, before any
+// hook could fire, so discovery is never behind the reporting path.
 
 import { Database } from "bun:sqlite";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { JsonObject, JsonValue } from "../json.ts";
@@ -36,6 +50,8 @@ import { clamp, MAX_TEXT_CHARS, stripAnsi, summarizeToolInput } from "./text.ts"
 import { classifyToolCall } from "./tool-call.ts";
 import type {
   AgentSessionRef,
+  DiscoverHints,
+  ForegroundProcess,
   JournalAdapter,
   TranscriptEntry,
   TranscriptPart,
@@ -43,6 +59,9 @@ import type {
 } from "./types.ts";
 
 const DB_FILE = "state.db";
+/** Where Hermes keeps profiles under a HERMES_HOME, and a profile name safe to join into a path. */
+const PROFILES_DIR = "profiles";
+const PROFILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
 const SESSION_ID_RE = /^\d{8}_\d{6}_[A-Za-z0-9]+$/;
 
 export function isHermesSessionId(value: string): boolean {
@@ -59,6 +78,33 @@ export function splitHermesKey(key: string): { dbPath: string; sessionId: string
   const dbPath = key.slice(0, at);
   const sessionId = key.slice(at + 1);
   return isHermesSessionId(sessionId) ? { dbPath, sessionId } : null;
+}
+
+/** Whether an argv's first word is Hermes itself — not a path component of some other program. */
+function isHermesArgv0(argv0: string): boolean {
+  const base = argv0.split(/[/\\]/).pop() ?? "";
+  return base.toLowerCase() === "hermes";
+}
+
+/**
+ * The session a pane's foreground argv names, or null when none does. Only an explicit
+ * `--resume <id>` / `-r <id>` counts (`hermes chat --help`): a fresh `hermes chat` with no resume
+ * falls through to the cwd walk below, where the just-started row is the newest and still wins.
+ * Mirrors `sessionFromArgv` in journal/muse.ts for the same reason — two Hermes panes sharing one
+ * cwd would otherwise cross-wire on whichever session is newest.
+ */
+function sessionFromArgv(processes: readonly ForegroundProcess[] | undefined): string | null {
+  if (processes === undefined) return null;
+  for (const proc of processes) {
+    const argv = proc.argv;
+    if (argv.length === 0 || !isHermesArgv0(argv[0]!)) continue;
+    for (let i = 1; i < argv.length - 1; i += 1) {
+      if ((argv[i] === "--resume" || argv[i] === "-r") && isHermesSessionId(argv[i + 1]!)) {
+        return argv[i + 1]!;
+      }
+    }
+  }
+  return null;
 }
 
 function withDb<T>(dbPath: string, fn: (db: Database) => T): T | null {
@@ -370,17 +416,82 @@ export class HermesTranscriptSource implements TranscriptSource {
     this.roots = rootList(roots);
   }
 
+  /**
+   * Every `state.db` a root holds: its own, then one per profile. A Hermes profile (`hermes -p
+   * shiro`) is a whole HERMES_HOME nested at `<root>/profiles/<name>/` with its own database, so a
+   * profile session is in no other file. The profile name comes from a directory listing, never from
+   * the ref, and each path is still confined to the root that built it.
+   */
+  private async databases(root: string): Promise<string[]> {
+    const names: readonly string[] = await readdir(join(root, PROFILES_DIR)).catch(() => []);
+    const candidates = [
+      join(root, DB_FILE),
+      ...names
+        .filter((n) => PROFILE_NAME_RE.test(n))
+        .toSorted()
+        .map((n) => join(root, PROFILES_DIR, n, DB_FILE)),
+    ];
+    const found: string[] = [];
+    for (const c of candidates) {
+      const path = await containedRealpath(c, root);
+      if (path !== null) found.push(path);
+    }
+    return found;
+  }
+
   async resolve(ref: AgentSessionRef): Promise<string | null> {
     if (ref.kind !== "id" || !isHermesSessionId(ref.value)) return null;
     for (const root of this.roots) {
-      const path = await containedRealpath(join(root, DB_FILE), root);
-      if (path === null) continue;
-      const found = withDb(path, (db) =>
-        db.query<{ id: string }, [string]>("select id from sessions where id = ?").get(ref.value),
-      );
-      if (found !== null && found !== undefined) return hermesKey(path, ref.value);
+      for (const path of await this.databases(root)) {
+        const found = withDb(path, (db) =>
+          db.query<{ id: string }, [string]>("select id from sessions where id = ?").get(ref.value),
+        );
+        if (found !== null && found !== undefined) return hermesKey(path, ref.value);
+      }
     }
     return null;
+  }
+
+  /**
+   * Find the session running in `cwd` without a reported ref (module header: `platform` sometimes
+   * never reaches the Herdr plugin, so the pane carries no `agentSession` at all).
+   *
+   * Two clues, in the same order as journal/muse.ts's `discoverSession`. First, the pane's own
+   * foreground argv: an explicit `--resume <id>` names the session exactly, so two Hermes panes
+   * sharing one cwd each read their own transcript rather than racing on "newest wins". Otherwise
+   * — a fresh `hermes chat`, a resume by name rather than id, or a multiplexer offering no argv —
+   * the newest `sessions` row across every `state.db` this root holds (including profiles) whose
+   * `cwd` column equals the pane's folder. Hermes writes that row at session START (before any
+   * hook could report it), so a session discovered this way is never behind one Herdr would have
+   * reported on its own.
+   *
+   * The returned ref still goes through the same `resolve` and containment as a reported one
+   * (journal/types.ts), so a row naming a session this adapter cannot otherwise open resolves to
+   * nothing rather than serving a path it never checked.
+   */
+  async discoverSession(cwd: string, hints?: DiscoverHints): Promise<AgentSessionRef | null> {
+    const named = sessionFromArgv(hints?.processes);
+    if (named !== null) return { kind: "id", value: named };
+    if (cwd.trim() === "") return null;
+    // Newest WINS ACROSS EVERY DATABASE, not just the first one that has a match: a root's default
+    // state.db and each of its profiles' are separate files (see `databases` above), and nothing
+    // says the default home's newest session in this cwd is newer than a profile's. Collecting one
+    // candidate per database before comparing is the only way to get that right.
+    let best: { id: string; startedAt: number } | null = null;
+    for (const root of this.roots) {
+      for (const path of await this.databases(root)) {
+        const hit = withDb(path, (db) =>
+          db
+            .query<{ id: string; started_at: number }, [string]>(
+              "select id, started_at from sessions where cwd = ? order by started_at desc limit 1",
+            )
+            .get(cwd),
+        );
+        if (hit === null || hit === undefined || !isHermesSessionId(hit.id)) continue;
+        if (best === null || hit.started_at > best.startedAt) best = { id: hit.id, startedAt: hit.started_at };
+      }
+    }
+    return best === null ? null : { kind: "id", value: best.id };
   }
 
   async stat(key: string): Promise<{ size: number; mtimeMs: number } | null> {
@@ -450,10 +561,12 @@ export class HermesTranscriptSource implements TranscriptSource {
 }
 
 export function hermesJournal(roots: string | readonly string[]): JournalAdapter {
+  const source = new HermesTranscriptSource(roots);
   return {
     agent: "hermes",
-    source: new HermesTranscriptSource(roots),
+    source,
     parse: parseHermesTranscript,
     reducer: createHermesReducer,
+    discover: (cwd: string, hints?: DiscoverHints) => source.discoverSession(cwd, hints),
   };
 }

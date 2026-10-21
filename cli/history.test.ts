@@ -334,9 +334,9 @@ describe("the history section", () => {
   test("`herdr integration status` that says nothing leaves every agent skipped, never ok", async () => {
     const byCheck = await run({ status: "" });
     for (const agent of JOURNAL_AGENT_NAMES) {
-      // The exception proves the rule: Muse and OpenClaw need no hook at all: their ok does not
-      // come from Herdr's answer, so Herdr's silence cannot take it away.
-      if (agent === "muse" || agent === "openclaw") {
+      // The exception proves the rule: Hermes, Muse and OpenClaw need no hook at all: their ok
+      // does not come from Herdr's answer, so Herdr's silence cannot take it away.
+      if (agent === "hermes" || agent === "muse" || agent === "openclaw") {
         expect(byCheck.get(`integration-${agent}`)?.status).toBe("ok");
       } else {
         expect(byCheck.get(`integration-${agent}`)?.status).toBe("skipped");

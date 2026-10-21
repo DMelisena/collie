@@ -340,11 +340,16 @@ describe("answer: after an unknown outcome", () => {
     const dir = stateDir();
     const first = new AnswerReceiptStore(dir);
     await first.load();
-    const adapter = new ScriptedAdapter([muxOk({ kind: "taken", replayed: false })]);
+    let started = () => {};
+    const calledAdapter = new Promise<void>((resolve) => (started = resolve));
+    const adapter = new ScriptedAdapter([muxOk({ kind: "taken", replayed: false })], () => started());
     let release = () => {};
     adapter.gate = new Promise((resolve) => (release = resolve));
     void rig(adapter, first).call("conv-02");
-    await Bun.sleep(5);
+    // The route writes the receipt (claim 2) BEFORE calling the adapter, so waiting for the call to
+    // start — rather than guessing a sleep — is what actually orders this after that write everywhere,
+    // including a slow disk on CI.
+    await calledAdapter;
     // The bridge stops here: the receipt on disk says the answer was on its way.
     const reborn = new AnswerReceiptStore(dir);
     await reborn.load();

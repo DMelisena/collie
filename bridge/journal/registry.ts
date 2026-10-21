@@ -130,12 +130,17 @@ export const DRAWS_IMAGES_OFF_GRID: readonly string[] = ["omp", "pi"];
  * Herdr reports a session only for agents with an integration; Muse has none, so its panes never
  * carry a ref and the adapter discovers the log by cwd instead (`JournalAdapter.discover`). OpenClaw
  * reports through a source of its own, which Herdr drops (#401), so its adapter reads the session
- * off the pane's footer. The
+ * off the pane's footer. Hermes HAS a current Herdr hook (`herdr-agent-state` v5) and still goes
+ * unreported in practice: live-verified 2026-10-17, Hermes core's own `pre_llm_call` hook call site
+ * defaults an unset `platform` to `""` rather than `"cli"`, so the hook's `platform not in
+ * {cli,tui,desktop,acp}` guard drops the report every time for a plain `hermes chat` pane
+ * (journal/hermes.ts module header). So its adapter discovers by cwd too, the same way Muse's does.
+ * The
  * name list exists for the one consumer that works from names alone: `collie doctor`, whose
  * history section must not advise `herdr integration install` for an agent no hook could ever
  * report. Pinned against the adapters themselves in registry.test.ts, so the two cannot drift.
  */
-export const DISCOVERS_OWN_SESSIONS: readonly string[] = ["muse", "openclaw"];
+export const DISCOVERS_OWN_SESSIONS: readonly string[] = ["hermes", "muse", "openclaw"];
 
 /**
  * The same pairs as a Map, which is how {@link adapterFor} asks.

@@ -1,12 +1,13 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { NO_CURSOR } from "./cursor.ts";
 import { FIRST_TAIL_ROWS } from "./files.ts";
 import {
+  hermesJournal,
   HermesTranscriptSource,
   isHermesSessionId,
   parseHermesTranscript,
@@ -90,7 +91,164 @@ describe("HermesTranscriptSource", () => {
 
     await rm(root, { recursive: true, force: true });
   });
+
+  // `hermes -p shiro` is a whole HERMES_HOME at `<root>/profiles/shiro/`, with its own state.db; a
+  // reader that only opened `<root>/state.db` found no profile session at all.
+  test("finds a session that lives in a profile's own state.db", async () => {
+    const root = await mkdtemp(join(tmpdir(), "collie-hermes-profile-"));
+    const PROFILE_SID = "20261011_004220_164149";
+    for (const [dir, sid, text] of [
+      [root, SID, "default home"],
+      [join(root, "profiles", "shiro"), PROFILE_SID, "from shiro"],
+    ] as const) {
+      await mkdir(dir, { recursive: true });
+      const db = new Database(join(dir, "state.db"));
+      db.run("create table sessions (id text primary key, source text, started_at real, parent_session_id text)");
+      db.run("create table messages (id integer primary key, session_id text, role text, content text, tool_call_id text, tool_calls text, tool_name text, timestamp real, reasoning text, reasoning_content text, active integer default 1, compacted integer default 0, display_kind text)");
+      db.run("insert into sessions (id, source, started_at, parent_session_id) values (?, 'cli', 1, null)", [sid]);
+      db.run("insert into messages (id, session_id, role, content, timestamp) values (1, ?, 'user', ?, 1)", [sid, text]);
+      db.close();
+    }
+
+    const source = new HermesTranscriptSource(root);
+    const key = await source.resolve({ kind: "id", value: PROFILE_SID });
+    expect(key).toBe(`${await realpath(join(root, "profiles", "shiro", "state.db"))}#${PROFILE_SID}`);
+    const loaded = await source.load(key!);
+    expect(parseHermesTranscript(loaded.text)[0]?.parts[0]).toEqual({ kind: "text", text: "from shiro" });
+    expect(await source.resolve({ kind: "id", value: "20990101_000000_ffffff" })).toBeNull();
+
+    await rm(root, { recursive: true, force: true });
+  });
 });
+
+// WHY THIS EXISTS: live-verified 2026-10-17 (an isolated Herdr lab, herdr 0.9.3, hermes-agent-state
+// v5) a plain `hermes chat` pane never reported `agent_session` even after a full turn — Hermes
+// core's `pre_llm_call` hook call site defaults an unset `platform` to `""` rather than `"cli"`
+// (module header). Discovery is this adapter's own fix for that gap: it finds the session Hermes
+// never reported, from the `sessions` row Hermes writes at start regardless.
+describe("hermesJournal discover", () => {
+  const schema = (db: Database) => {
+    db.run(
+      "create table sessions (id text primary key, source text, started_at real, parent_session_id text, cwd text)",
+    );
+    db.run(
+      "create table messages (id integer primary key, session_id text, role text, content text, tool_call_id text, tool_calls text, tool_name text, timestamp real, reasoning text, reasoning_content text, active integer default 1, compacted integer default 0, display_kind text)",
+    );
+  };
+
+  /** One `state.db` at `root`, with one `sessions` row per `[id, cwd, startedAt]` triple. */
+  async function lab(rows: readonly [id: string, cwd: string, startedAt: number][]) {
+    const root = await mkdtemp(join(tmpdir(), "collie-hermes-discover-"));
+    const db = new Database(join(root, "state.db"));
+    schema(db);
+    for (const [id, cwd, startedAt] of rows) {
+      db.run("insert into sessions (id, source, started_at, cwd) values (?, 'cli', ?, ?)", [id, startedAt, cwd]);
+    }
+    db.close();
+    return root;
+  }
+
+  test("finds the newest session whose cwd equals the pane's folder", async () => {
+    const root = await lab([
+      ["20261001_000000_aaaaaa", "/a", 1],
+      ["20261002_000000_bbbbbb", "/b", 1],
+      ["20261003_000000_cccccc", "/b", 2],
+    ]);
+    const adapter = hermesJournal([root]);
+    await expect(adapter.discover?.("/b")).resolves.toEqual({ kind: "id", value: "20261003_000000_cccccc" });
+    await expect(adapter.discover?.("/a")).resolves.toEqual({ kind: "id", value: "20261001_000000_aaaaaa" });
+    await expect(adapter.discover?.("/nowhere")).resolves.toBeNull();
+    await expect(adapter.discover?.("")).resolves.toBeNull();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("a profile's own state.db is searched too", async () => {
+    const root = await mkdtemp(join(tmpdir(), "collie-hermes-discover-profile-"));
+    const defaultDb = new Database(join(root, "state.db"));
+    schema(defaultDb);
+    defaultDb.close();
+    const profileDir = join(root, "profiles", "shiro");
+    await mkdir(profileDir, { recursive: true });
+    const profileDb = new Database(join(profileDir, "state.db"));
+    schema(profileDb);
+    profileDb.run("insert into sessions (id, source, started_at, cwd) values (?, 'cli', 1, ?)", [
+      "20261011_004220_164149",
+      "/work",
+    ]);
+    profileDb.close();
+
+    const adapter = hermesJournal([root]);
+    await expect(adapter.discover?.("/work")).resolves.toEqual({ kind: "id", value: "20261011_004220_164149" });
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("newest wins ACROSS databases, not just within the first one that matches", async () => {
+    // The default home's own session in this cwd is older; a profile's is newer. Checking the
+    // default home first and stopping there would wrongly serve the older one.
+    const root = await mkdtemp(join(tmpdir(), "collie-hermes-discover-cross-db-"));
+    const defaultDb = new Database(join(root, "state.db"));
+    schema(defaultDb);
+    defaultDb.run("insert into sessions (id, source, started_at, cwd) values (?, 'cli', 1, ?)", [
+      "20261001_000000_aaaaaa",
+      "/shared",
+    ]);
+    defaultDb.close();
+    const profileDir = join(root, "profiles", "shiro");
+    await mkdir(profileDir, { recursive: true });
+    const profileDb = new Database(join(profileDir, "state.db"));
+    schema(profileDb);
+    profileDb.run("insert into sessions (id, source, started_at, cwd) values (?, 'cli', 2, ?)", [
+      "20261002_000000_bbbbbb",
+      "/shared",
+    ]);
+    profileDb.close();
+
+    const adapter = hermesJournal([root]);
+    await expect(adapter.discover?.("/shared")).resolves.toEqual({ kind: "id", value: "20261002_000000_bbbbbb" });
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("foreground argv's explicit --resume names the pane's own session across a shared cwd", async () => {
+    const root = await lab([
+      ["20261001_000000_aaaaaa", "/same", 1],
+      ["20261002_000000_bbbbbb", "/same", 2],
+    ]);
+    const adapter = hermesJournal([root]);
+    // Without argv both panes would read the newest (bbbbbb); with it each reads its own.
+    await expect(
+      adapter.discover?.("/same", { processes: [{ argv: ["hermes", "chat", "--resume", "20261001_000000_aaaaaa"] }] }),
+    ).resolves.toEqual({ kind: "id", value: "20261001_000000_aaaaaa" });
+    await expect(
+      adapter.discover?.("/same", { processes: [{ argv: ["/usr/local/bin/hermes", "chat", "-r", "20261002_000000_bbbbbb"] }] }),
+    ).resolves.toEqual({ kind: "id", value: "20261002_000000_bbbbbb" });
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("a bare hermes with no --resume falls through to the cwd walk", async () => {
+    const root = await lab([["20261001_000000_aaaaaa", "/same", 1]]);
+    const adapter = hermesJournal([root]);
+    await expect(
+      adapter.discover?.("/same", { processes: [{ argv: ["hermes", "chat"] }] }),
+    ).resolves.toEqual({ kind: "id", value: "20261001_000000_aaaaaa" });
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("an unresolvable argv id still falls through rather than returning a dead ref", async () => {
+    // sessionFromArgv itself only checks the ID SHAPE, not whether the session exists; discover
+    // returns whatever it names, and the caller's resolve() is what refuses a dead one (module
+    // header: "the returned ref still goes through the same resolve and containment"). Pinned here
+    // so a future change to the argv match keeps that division of labour.
+    const root = await lab([["20261001_000000_aaaaaa", "/same", 1]]);
+    const adapter = hermesJournal([root]);
+    await expect(
+      adapter.discover?.("/same", {
+        processes: [{ argv: ["hermes", "chat", "--resume", "20269999_999999_zzzzzz"] }],
+      }),
+    ).resolves.toEqual({ kind: "id", value: "20269999_999999_zzzzzz" });
+    await rm(root, { recursive: true, force: true });
+  });
+});
+
 // The live read. Hermes' cursor is `max(messages.id)`, so this is where the two things that cursor
 // CAN and CANNOT see are pinned: a new row arrives, and a row whose mutable state changed does not.
 describe("HermesTranscriptSource — readSince", () => {

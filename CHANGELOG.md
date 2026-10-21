@@ -23,6 +23,10 @@ Running a crew? Update the lead first; members follow on their own. Details:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hermes panes show their Chat again.** Herdr never detects Hermes from the process, so a pane that reported a Hermes session was read as a bare shell and lost it; and a session started with a profile (`hermes -p <name>`) is now found in that profile's own database. Hermes still never reported that session in practice — its own `pre_llm_call` hook call site can default an unset platform to nothing, which the Herdr integration reads as non-interactive and never reports — so Collie now finds a Hermes pane's session itself, from its SessionDB's own record of where it started, the same way it already does for Muse.
+
 ## [1.21.3] - 2026-10-14
 
 A bugfix release, not urgent. You need it if you use pi with `editorPaddingX` above 0, Claude Code 2.1.299 with a task list, or a crew peer that listens on loopback.

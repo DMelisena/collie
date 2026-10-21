@@ -1151,6 +1151,13 @@ export const es: Dictionary = {
   "history.nextMessageAria": "Siguiente mensaje enviado",
   "history.loadOlderFailed": "Error al cargar el historial anterior",
 
+  // --- summary (chat de resumen continuo de un agente) ---
+  "summary.title": "Resumen",
+  "summary.openAria": "Abrir resumen",
+  "summary.closeAria": "Cerrar resumen",
+  "summary.openFullSession": "Abrir sesión completa",
+  "summary.empty": "Todavía no hay nada que resumir.",
+
   // --- transcript (transcript-view turn rendering) ---
   "transcript.summaryLabel": "Contexto resumido",
   "transcript.systemLabel": "Sistema",

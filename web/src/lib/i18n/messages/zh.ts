@@ -1132,6 +1132,13 @@ export const zh: Dictionary = {
   "history.nextMessageAria": "下一条发送的消息",
   "history.loadOlderFailed": "加载历史记录失败",
 
+  // --- summary（一个代理的滚动摘要对话） ---
+  "summary.title": "摘要",
+  "summary.openAria": "打开摘要",
+  "summary.closeAria": "关闭摘要",
+  "summary.openFullSession": "打开完整会话",
+  "summary.empty": "目前还没有可摘要的内容。",
+
   // --- transcript (transcript-view turn rendering) ---
   "transcript.summaryLabel": "上下文已压缩",
   "transcript.systemLabel": "系统",

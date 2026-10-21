@@ -13,6 +13,7 @@ import { NewRoute } from "@/routes/new";
 import { NewAddRoute } from "@/routes/new-add";
 import { DetailRoute } from "@/routes/detail";
 import { HistoryRoute } from "@/routes/history";
+import { SummaryRoute } from "@/routes/summary";
 import { ChangesRoute } from "@/routes/changes";
 import { SettingsRoute } from "@/routes/settings";
 import {
@@ -156,6 +157,15 @@ export const router = createBrowserRouter([
         // hundreds of turns — re-pulling it every 1.5s would be pure waste, and it would fight the
         // view's own "load older" paging by resetting the page under it. History is fetched on
         // navigation; the view pages back through it with direct api calls.
+        shouldRevalidate: () => false,
+      },
+      {
+        // The summary chat (Captain's brief): same loader as History, lazily, because it reads the
+        // exact same journal — the only new work is the pure projection the route runs over what
+        // this loader already fetched. Same opt-out, for the same reason.
+        path: "pane/:paneId/summary",
+        loader: historyLoader,
+        element: <SummaryRoute />,
         shouldRevalidate: () => false,
       },
       {

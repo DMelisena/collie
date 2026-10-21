@@ -23,6 +23,13 @@ Running a crew? Update the lead first; members follow on their own. Details:
 
 ## [Unreleased]
 
+### Added
+
+- **Each agent gets a summary chat, scrolling like a conversation.** It's projected from the
+  existing session journal, with a recap generated only where the journal's own events lack a
+  usable summary, and a shortcut back to the full live session; raw terminal output never appears
+  there.
+
 ## [1.21.3] - 2026-10-14
 
 A bugfix release, not urgent. You need it if you use pi with `editorPaddingX` above 0, Claude Code 2.1.299 with a task list, or a crew peer that listens on loopback.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, GitBranchPlus, Maximize2, MessagesSquare, Monitor, Pencil, Pin, PinOff, ScrollText, Search, SlidersHorizontal, SquareTerminal, XCircle } from "lucide-react";
+import { Copy, GitBranchPlus, Maximize2, MessagesSquare, Monitor, NotebookText, Pencil, Pin, PinOff, ScrollText, Search, SlidersHorizontal, SquareTerminal, XCircle } from "lucide-react";
 
 import { BottomSheet } from "@/components/ui/sheet";
 import { ActionRow, DestructiveActionRow, RenameView } from "@/components/action-sheet-rows";
@@ -57,6 +57,8 @@ interface PaneActionsSheetProps {
   onFind?: () => void;
   /** Open the agent's own transcript. */
   onHistory?: () => void;
+  /** Open this agent's summary chat — the same gate as History, since both read the same journal. */
+  onSummary?: () => void;
   /** Copy the pane's buffered terminal output to the clipboard. The sheet closes and a status toast
    *  reports the result. Gated by the caller on there being output AND a usable clipboard (it is
    *  absent over plain HTTP, a supported deploy), so an unusable row is HIDDEN — the same "a row is a
@@ -157,6 +159,7 @@ export function PaneActionsSheet({
   onClosed,
   onFind,
   onHistory,
+  onSummary,
   onCopyOutput,
   onSettings,
   openInRename = false,
@@ -393,6 +396,16 @@ export function PaneActionsSheet({
               onClick={() => {
                 onClose();
                 onHistory();
+              }}
+            />
+          )}
+          {onSummary && (
+            <ActionRow
+              icon={<NotebookText className="size-4 shrink-0 text-muted-foreground" />}
+              label={t("summary.title")}
+              onClick={() => {
+                onClose();
+                onSummary();
               }}
             />
           )}

@@ -1128,6 +1128,13 @@ export const zhTW: Dictionary = {
   "history.nextMessageAria": "下一則傳送的訊息",
   "history.loadOlderFailed": "載入歷史記錄失敗",
 
+  // --- summary（一個代理的滾動摘要對話） ---
+  "summary.title": "摘要",
+  "summary.openAria": "開啟摘要",
+  "summary.closeAria": "關閉摘要",
+  "summary.openFullSession": "開啟完整工作階段",
+  "summary.empty": "目前還沒有可摘要的內容。",
+
   // --- transcript (transcript-view turn rendering) ---
   "transcript.summaryLabel": "內容已壓縮",
   "transcript.systemLabel": "系統",
